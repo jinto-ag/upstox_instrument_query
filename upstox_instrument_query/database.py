@@ -1,5 +1,12 @@
+"""SQLite database handler for Upstox instrument data.
+
+This module provides functionality to create and manage a SQLite database
+for storing and querying Upstox instrument data.
+"""
+
 import re
 import sqlite3
+from typing import Optional
 
 from .utils import stream_json, stream_json_from_url
 
@@ -21,8 +28,8 @@ class InstrumentDatabase:
             db_path (str): Path to the SQLite database file
         """
         self.db_path = db_path
-        self.conn = None
-        self.cursor = None
+        self.conn: Optional[sqlite3.Connection] = None
+        self.cursor: Optional[sqlite3.Cursor] = None
 
     def connect(self):
         """
@@ -39,8 +46,9 @@ class InstrumentDatabase:
             reg = re.compile(expr)
             return reg.search(item) is not None
 
-        self.conn.create_function("REGEXP", 2, regexp)
-        self.cursor = self.conn.cursor()
+        if self.conn:
+            self.conn.create_function("REGEXP", 2, regexp)
+            self.cursor = self.conn.cursor()
 
     def close(self):
         """
@@ -69,7 +77,8 @@ class InstrumentDatabase:
         else:
             self._load_json(json_source)
         self._create_indexes()
-        self.conn.commit()
+        if self.conn:
+            self.conn.commit()
 
     def _create_table(self):
         """
@@ -78,29 +87,30 @@ class InstrumentDatabase:
         Creates the main table structure for storing instrument data
         if it doesn't already exist.
         """
-        self.cursor.execute(
+        if self.cursor:
+            self.cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS instruments (
+                    instrument_key TEXT,
+                    exchange TEXT,
+                    instrument_type TEXT,
+                    name TEXT,
+                    lot_size INTEGER,
+                    expiry TEXT,
+                    strike REAL,
+                    tick_size REAL,
+                    segment TEXT,
+                    exchange_token TEXT,
+                    trading_symbol TEXT,
+                    short_name TEXT,
+                    isin TEXT,
+                    option_type TEXT,
+                    freeze_quantity REAL,
+                    security_type TEXT,
+                    last_price REAL
+                )
             """
-            CREATE TABLE IF NOT EXISTS instruments (
-                instrument_key TEXT,
-                exchange TEXT,
-                instrument_type TEXT,
-                name TEXT,
-                lot_size INTEGER,
-                expiry TEXT,
-                strike REAL,
-                tick_size REAL,
-                segment TEXT,
-                exchange_token TEXT,
-                trading_symbol TEXT,
-                short_name TEXT,
-                isin TEXT,
-                option_type TEXT,
-                freeze_quantity REAL,
-                security_type TEXT,
-                last_price REAL
             )
-        """
-        )
 
     def _load_json(self, json_path: str):
         """
@@ -111,6 +121,9 @@ class InstrumentDatabase:
         Args:
             json_path (str): Path to the local JSON file
         """
+        if not self.cursor:
+            return
+
         for instrument in stream_json(json_path):
             self.cursor.execute(
                 """
@@ -150,6 +163,9 @@ class InstrumentDatabase:
         Args:
             url (str): URL to the JSON data (can be gzipped)
         """
+        if not self.cursor:
+            return
+
         for instrument in stream_json_from_url(url):
             self.cursor.execute(
                 """
@@ -186,6 +202,9 @@ class InstrumentDatabase:
 
         Adds database indexes to optimize query performance on commonly used fields.
         """
+        if not self.cursor:
+            return
+
         self.cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_instrument_key ON instruments(instrument_key)"
         )
@@ -214,10 +233,12 @@ class InstrumentDatabase:
         """
         self.connect()
         # Delete existing instruments
-        self.cursor.execute("DELETE FROM instruments")
-        # Load new data
-        if is_url:
-            self._load_json_from_url(json_source)
-        else:
-            self._load_json(json_source)
-        self.conn.commit()
+        if self.cursor:
+            self.cursor.execute("DELETE FROM instruments")
+            # Load new data
+            if is_url:
+                self._load_json_from_url(json_source)
+            else:
+                self._load_json(json_source)
+            if self.conn:
+                self.conn.commit()

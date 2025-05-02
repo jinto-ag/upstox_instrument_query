@@ -1,3 +1,9 @@
+"""Integration tests for the upstox_instrument_query package.
+
+This module tests the complete workflow from database initialization to
+querying, ensuring all components work together correctly.
+"""
+
 import os
 import sqlite3
 import tempfile

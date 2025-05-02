@@ -1,11 +1,12 @@
-import gzip
-import json
+"""Tests for the utility functions module.
+
+This module tests the JSON streaming utilities for handling both
+local files and remote URLs.
+"""
+
 import os
 import tempfile
-from io import BytesIO
 from unittest import mock
-
-import pytest
 
 from upstox_instrument_query.utils import stream_json, stream_json_from_url
 

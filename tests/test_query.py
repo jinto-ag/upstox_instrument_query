@@ -1,4 +1,8 @@
-import pytest
+"""Tests for the query module.
+
+This module tests the query functionality for filtering and retrieving
+instrument data from the database.
+"""
 
 
 def test_query_init(initialized_db):

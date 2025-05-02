@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Command-line interface for Upstox Instrument Query.
+"""Command-line interface for Upstox Instrument Query.
 
 This module provides command-line utilities for initializing and updating
 the instrument database from JSON files or URLs.
@@ -13,13 +12,15 @@ from upstox_instrument_query.database import InstrumentDatabase
 
 
 def main():
-    """
-    Entry point for the command-line interface.
+    """Entry point for the command-line interface.
 
     Parses arguments and executes the appropriate command.
     """
     parser = argparse.ArgumentParser(
-        description="Upstox Instrument Query - Efficiently manage and query Upstox instrument data"
+        description=(
+            "Upstox Instrument Query - Efficiently manage and query Upstox "
+            "instrument data"
+        )
     )
     subparsers = parser.add_subparsers(dest="command")
 

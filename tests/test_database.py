@@ -1,5 +1,10 @@
-import os
-import sqlite3
+"""Tests for the database module.
+
+This module tests the SQLite database functionality for storing and retrieving
+instrument data.
+"""
+
+import sqlite3  # Removed unused 'os' import
 
 import pytest
 

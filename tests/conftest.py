@@ -1,7 +1,11 @@
+"""Test configuration and fixtures for the upstox_instrument_query package.
+
+This module provides pytest fixtures for testing the package functionality.
+"""
+
 import os
 import sqlite3
 import tempfile
-from pathlib import Path
 
 import pytest
 

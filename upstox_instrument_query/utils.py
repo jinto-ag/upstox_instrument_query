@@ -1,3 +1,9 @@
+"""Utility functions for handling JSON data in the Upstox instrument query package.
+
+This module provides functionality for efficiently streaming and processing
+JSON data from both local files and remote URLs.
+"""
+
 import gzip
 import json
 import urllib.request

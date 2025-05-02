@@ -1,6 +1,10 @@
-import os
+"""Tests for the command-line interface module.
+
+This module tests the CLI functionality for initializing and updating
+the instrument database through the command line.
+"""
+
 import sys
-import tempfile
 from unittest import mock
 
 import pytest

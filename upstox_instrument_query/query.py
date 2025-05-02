@@ -1,4 +1,11 @@
+"""Query interface for the Upstox instrument database.
+
+This module provides classes and methods to efficiently query
+instrument data from the SQLite database.
+"""
+
 from functools import lru_cache
+from typing import Any, Dict, List, Optional, Tuple
 
 from .database import InstrumentDatabase
 
@@ -27,7 +34,7 @@ class InstrumentQuery:
         self.db.close()
 
     @lru_cache(maxsize=1000)
-    def get_by_instrument_key(self, instrument_key: str) -> dict:
+    def get_by_instrument_key(self, instrument_key: str) -> Optional[Dict[str, Any]]:
         """
         Get an instrument by its instrument_key.
 
@@ -35,19 +42,22 @@ class InstrumentQuery:
             instrument_key (str): The unique instrument key (e.g., 'NSE_EQ|INE002A01018')
 
         Returns:
-            dict: Instrument details as a dictionary or None if not found
+            Dict[str, Any] or None: Instrument details as a dictionary or None if not found
         """
+        if not self.db.cursor:
+            return None
+
         self.db.cursor.execute(
             "SELECT * FROM instruments WHERE instrument_key = ?", (instrument_key,)
         )
         result = self.db.cursor.fetchone()
-        if result:
+        if result and self.db.cursor.description:
             columns = [col[0] for col in self.db.cursor.description]
             return dict(zip(columns, result))
         return None
 
     @lru_cache(maxsize=1000)
-    def filter_by_exchange(self, exchange: str) -> list:
+    def filter_by_exchange(self, exchange: str) -> List[Dict[str, Any]]:
         """
         Get all instruments for a given exchange.
 
@@ -55,16 +65,21 @@ class InstrumentQuery:
             exchange (str): Exchange code (e.g., 'NSE', 'BSE')
 
         Returns:
-            list: List of instrument dictionaries matching the exchange
+            List[Dict[str, Any]]: List of instrument dictionaries matching the exchange
         """
+        if not self.db.cursor:
+            return []
+
         self.db.cursor.execute(
             "SELECT * FROM instruments WHERE exchange = ?", (exchange,)
         )
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
     @lru_cache(maxsize=1000)
-    def filter_by_instrument_type(self, instrument_type: str) -> list:
+    def filter_by_instrument_type(self, instrument_type: str) -> List[Dict[str, Any]]:
         """
         Get all instruments of a given type.
 
@@ -72,16 +87,21 @@ class InstrumentQuery:
             instrument_type (str): Type of instrument (e.g., 'EQUITY', 'FUTURES')
 
         Returns:
-            list: List of instrument dictionaries matching the instrument type
+            List[Dict[str, Any]]: List of instrument dictionaries matching the instrument type
         """
+        if not self.db.cursor:
+            return []
+
         self.db.cursor.execute(
             "SELECT * FROM instruments WHERE instrument_type = ?", (instrument_type,)
         )
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
     @lru_cache(maxsize=1000)
-    def filter_by_segment(self, segment: str) -> list:
+    def filter_by_segment(self, segment: str) -> List[Dict[str, Any]]:
         """
         Get all instruments for a given segment.
 
@@ -89,16 +109,21 @@ class InstrumentQuery:
             segment (str): Segment code (e.g., 'NSE_EQ', 'NSE_FO')
 
         Returns:
-            list: List of instrument dictionaries matching the segment
+            List[Dict[str, Any]]: List of instrument dictionaries matching the segment
         """
+        if not self.db.cursor:
+            return []
+
         self.db.cursor.execute(
             "SELECT * FROM instruments WHERE segment = ?", (segment,)
         )
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
     @lru_cache(maxsize=1000)
-    def filter_by_isin(self, isin: str) -> list:
+    def filter_by_isin(self, isin: str) -> List[Dict[str, Any]]:
         """
         Get all instruments for a given ISIN.
 
@@ -106,14 +131,19 @@ class InstrumentQuery:
             isin (str): International Securities Identification Number
 
         Returns:
-            list: List of instrument dictionaries matching the ISIN
+            List[Dict[str, Any]]: List of instrument dictionaries matching the ISIN
         """
+        if not self.db.cursor:
+            return []
+
         self.db.cursor.execute("SELECT * FROM instruments WHERE isin = ?", (isin,))
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
     @lru_cache(maxsize=500)
-    def filter_by_option_type(self, option_type: str) -> list:
+    def filter_by_option_type(self, option_type: str) -> List[Dict[str, Any]]:
         """
         Get all option instruments of a given option type.
 
@@ -121,15 +151,22 @@ class InstrumentQuery:
             option_type (str): Option type ('CE' for Call, 'PE' for Put)
 
         Returns:
-            list: List of option instrument dictionaries matching the option type
+            List[Dict[str, Any]]: List of option instrument dictionaries matching the option type
         """
+        if not self.db.cursor:
+            return []
+
         self.db.cursor.execute(
             "SELECT * FROM instruments WHERE option_type = ?", (option_type,)
         )
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
-    def search_by_name(self, name_pattern: str, case_sensitive: bool = False) -> list:
+    def search_by_name(
+        self, name_pattern: str, case_sensitive: bool = False
+    ) -> List[Dict[str, Any]]:
         """
         Search instruments by name using a regex pattern.
 
@@ -138,16 +175,23 @@ class InstrumentQuery:
             case_sensitive (bool, optional): Whether the search should be case-sensitive. Defaults to False.
 
         Returns:
-            list: List of instrument dictionaries matching the name pattern
+            List[Dict[str, Any]]: List of instrument dictionaries matching the name pattern
         """
+        if not self.db.cursor:
+            return []
+
         query = "SELECT * FROM instruments WHERE name REGEXP ?"
         if not case_sensitive:
             name_pattern = f"(?i){name_pattern}"
         self.db.cursor.execute(query, (name_pattern,))
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
-    def custom_query(self, where_clause: str, params: tuple = ()) -> list:
+    def custom_query(
+        self, where_clause: str, params: Tuple[Any, ...] = ()
+    ) -> List[Dict[str, Any]]:
         """
         Execute a custom SQL query with a WHERE clause.
 
@@ -156,18 +200,25 @@ class InstrumentQuery:
             params (tuple, optional): Parameter values for the query placeholders. Defaults to ().
 
         Returns:
-            list: List of instrument dictionaries matching the custom query
+            List[Dict[str, Any]]: List of instrument dictionaries matching the custom query
 
         Example:
             query.custom_query("instrument_type = ? AND expiry > ?", ("FUTURES", "2023-12-31"))
         """
+        if not self.db.cursor:
+            return []
+
         query = f"SELECT * FROM instruments WHERE {where_clause}"
         self.db.cursor.execute(query, params)
-        columns = [col[0] for col in self.db.cursor.description]
-        return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        if self.db.cursor.description:
+            columns = [col[0] for col in self.db.cursor.description]
+            return [dict(zip(columns, row)) for row in self.db.cursor.fetchall()]
+        return []
 
     @lru_cache(maxsize=1000)
-    def get_by_trading_symbol(self, trading_symbol: str, exchange: str = None) -> dict:
+    def get_by_trading_symbol(
+        self, trading_symbol: str, exchange: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get an instrument by its trading symbol, optionally filtering by exchange.
 
@@ -176,8 +227,11 @@ class InstrumentQuery:
             exchange (str, optional): Exchange to filter by. Defaults to None.
 
         Returns:
-            dict: Instrument details as a dictionary or None if not found
+            Dict[str, Any] or None: Instrument details as a dictionary or None if not found
         """
+        if not self.db.cursor:
+            return None
+
         if exchange:
             self.db.cursor.execute(
                 "SELECT * FROM instruments WHERE trading_symbol = ? AND exchange = ?",
@@ -188,12 +242,14 @@ class InstrumentQuery:
                 "SELECT * FROM instruments WHERE trading_symbol = ?", (trading_symbol,)
             )
         result = self.db.cursor.fetchone()
-        if result:
+        if result and self.db.cursor.description:
             columns = [col[0] for col in self.db.cursor.description]
             return dict(zip(columns, result))
         return None
 
-    def get_option_chain(self, underlying_isin: str, expiry: str = None) -> list:
+    def get_option_chain(
+        self, underlying_isin: str, expiry: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get the option chain for a specific underlying security by ISIN.
 
@@ -202,7 +258,7 @@ class InstrumentQuery:
             expiry (str, optional): Filter by expiry date (format: 'YYYY-MM-DD'). Defaults to None.
 
         Returns:
-            list: List of option instruments for the specified underlying
+            List[Dict[str, Any]]: List of option instruments for the specified underlying
         """
         if expiry:
             return self.custom_query(
