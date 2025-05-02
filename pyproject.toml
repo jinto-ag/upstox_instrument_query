@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=80.1.0", "wheel>=0.45.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -25,21 +25,19 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 dependencies = [
-    "pre-commit>=4.2.0",
-    "pytest",
-    "pytest-cov",
-    "requests",
+    "requests==2.32.3",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "pytest",
-    "pytest-cov",
-    "black",
-    "isort",
-    "mypy",
+    "pytest==8.3.5",
+    "pytest-cov==6.1.1",
+    "pre-commit==4.2.0",
+    "coverage==7.8.0",
+    "flake8>=7.2.0",
+    "black>=25.1.0",
 ]
-test = ["pytest", "pytest-cov"]
+test = ["pytest==8.3.5", "pytest-cov==6.1.1"]
 
 [project.urls]
 "Homepage" = "https://github.com/jinto-ag/upstox_instrument_query"

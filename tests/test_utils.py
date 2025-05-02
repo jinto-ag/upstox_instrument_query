@@ -38,7 +38,9 @@ def test_stream_json_handles_malformed_json():
             count += 1
             assert item["valid"] is True
 
-        assert count == 1  # Only the first valid item should be processed
+        # The stream_json function should skip invalid JSON objects
+        # and continue processing valid ones
+        assert count == 1
     finally:
         os.unlink(temp_file)
 
@@ -88,9 +90,11 @@ def test_stream_json_malformed_streaming():
 
 
 def test_stream_json_skip_comma():
-    """Test handling of the comma and whitespace skipping in the streaming approach."""
+    """Test handling of the comma and
+    whitespace skipping in the streaming approach.
+    """
     with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-        # Create a JSON file with various whitespace and newlines between objects
+        # Create a file with various whitespace and newlines between objects
         # This will test line 51 in the streaming approach (skipping commas and whitespace)
         f.write('[{"key1": "value1"},\n\t {"key2": "value2"},  {"key3": "value3"}]')
         temp_file = f.name
@@ -125,6 +129,23 @@ def test_stream_json_complex_edge_cases():
         # and also test the EOF handling in line 51
         items = list(stream_json(temp_file))
         assert len(items) > 0
+    finally:
+        os.unlink(temp_file)
+
+
+def test_stream_json_whitespace_handling():
+    """Test specific whitespace handling in JSON streaming."""
+    # This test targets the whitespace handling loop in stream_json
+    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+        # Create a JSON file with unusual whitespace combinations
+        f.write('[{"id": 1},\n\r\t \n{"id": 2}]')
+        temp_file = f.name
+
+    try:
+        results = list(stream_json(temp_file))
+        assert len(results) == 2
+        assert results[0]["id"] == 1
+        assert results[1]["id"] == 2
     finally:
         os.unlink(temp_file)
 

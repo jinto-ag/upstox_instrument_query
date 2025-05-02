@@ -1,7 +1,7 @@
 """Package configuration for upstox_instrument_query.
 
-This module contains the package configuration for setuptools to build and distribute
-the upstox_instrument_query package.
+This module contains the package configuration for setuptools
+to build and distribute the upstox_instrument_query package.
 """
 
 from setuptools import find_packages, setup
@@ -11,16 +11,30 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        "requests>=2.25.0",
+        "requests==2.32.3",
     ],
+    extras_require={
+        "dev": [
+            "pytest==8.3.5",
+            "pytest-cov==6.1.1",
+            "pre-commit==4.2.0",
+            "coverage==7.8.0",
+        ],
+        "test": [
+            "pytest==8.3.5",
+            "pytest-cov==6.1.1",
+        ],
+    },
     entry_points={
         "console_scripts": [
             "upstox-query=upstox_instrument_query.cli:main",
         ],
     },
     author="Jinto A G",
-    author_email="jinto.ag@example.com",
-    description=("Efficiently query large Upstox instruments JSON files using SQLite"),
+    author_email="project.jintoag@gmail.com",
+    description=(
+        "Efficiently query large Upstox instruments " "JSON files using SQLite"
+    ),
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/jinto-ag/upstox_instrument_query",

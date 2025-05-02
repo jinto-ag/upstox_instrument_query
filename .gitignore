@@ -1,10 +1,13 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -16,30 +19,67 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Virtual environments
-venv/
-ENV/
-.env
-.venv
+MANIFEST
 
 # Unit test / coverage reports
-htmlcov/
+# Note: We're keeping htmlcov in the repo for README badge linking
+# htmlcov/
 .tox/
+.nox/
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
+.pytest_cache/
+pytestdebug.log
 
-# IDEs and editors
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# IDE / Editor files
 .idea/
 .vscode/
 *.swp
 *.swo
 .DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Logs
+logs/
+*.log
+
+# Local development settings
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Rope project settings
+.ropeproject
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/

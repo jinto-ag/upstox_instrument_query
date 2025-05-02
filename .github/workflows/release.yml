@@ -1,0 +1,113 @@
+name: Release with Changelog
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Type of release (major, minor, patch)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine build
+          npm install -g conventional-changelog-cli standard-version
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Get current version
+        id: current_version
+        run: |
+          VERSION=$(python -c "from configparser import ConfigParser; p = ConfigParser(); p.read('setup.py', encoding='utf-8'); import re; print(re.search(r'version=[\'\"](.*?)[\'\"]', p.get('metadata', 'version')).group(1))")
+          echo "Current version: $VERSION"
+          echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          CURRENT=${{ env.CURRENT_VERSION }}
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+
+          case ${{ github.event.inputs.release_type }} in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+          # Update version in files
+          sed -i "s/version=[\'\"]${CURRENT}[\'\"]/version=\'${NEW_VERSION}\'/g" setup.py
+
+          # Update version in __init__.py if it exists there
+          if grep -q "__version__" upstox_instrument_query/__init__.py; then
+            sed -i "s/__version__ = [\'\"].*[\'\"]/__version__ = \'${NEW_VERSION}\'/g" upstox_instrument_query/__init__.py
+          fi
+
+      - name: Generate changelog
+        run: |
+          # Generate changelog
+          conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+
+          # Extract the latest release notes for the GitHub release
+          sed -n '/^## /,/^## /p' CHANGELOG.md | sed '$d' > RELEASE_NOTES.md
+
+      - name: Commit and push changes
+        run: |
+          git add CHANGELOG.md setup.py upstox_instrument_query/__init__.py
+          git commit -m "chore(release): ${{ env.NEW_VERSION }} [skip ci]"
+          git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
+          git push origin main
+          git push origin v${{ env.NEW_VERSION }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: false
