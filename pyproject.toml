@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "upstox-instrument-query"
+version = "0.1.0"
+description = "Efficiently query large Upstox instruments JSON files using SQLite"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Jinto A G", email = "project.jintoag@gmail.com" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+]
+dependencies = [
+    "pre-commit>=4.2.0",
+    "pytest",
+    "pytest-cov",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "isort",
+    "mypy",
+]
+test = ["pytest", "pytest-cov"]
+
+[project.urls]
+"Homepage" = "https://github.com/jinto-ag/upstox_instrument_query"
+"Bug Tracker" = "https://github.com/jinto-ag/upstox_instrument_query/issues"
+
+[project.scripts]
+upstox-query = "upstox_instrument_query.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--cov=upstox_instrument_query --cov-report=term --cov-report=html"
+
+[tool.coverage.run]
+source = ["upstox_instrument_query"]
+omit = ["*/tests/*", "setup.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
