@@ -52,7 +52,7 @@ jobs:
 
       - name: Commit updated README with coverage badge
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "docs: update coverage badge [skip ci]"
           file_pattern: README.md
