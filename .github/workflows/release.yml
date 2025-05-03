@@ -228,11 +228,17 @@ jobs:
           # Stage and commit the changes
           git add CHANGELOG.md upstox_instrument_query/__init__.py setup.py pyproject.toml
           git commit -m "${{ env.COMMIT_MESSAGE }}"
-          git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
 
-          # Push the branch and tag
+          # Check if the tag already exists
+          if git rev-parse "v${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            echo "Tag v${{ env.NEW_VERSION }} already exists. Skipping tag creation."
+          else
+            git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
+            git push origin v${{ env.NEW_VERSION }}
+          fi
+
+          # Push the branch (always, regardless of whether the tag exists)
           git push origin $BRANCH_NAME
-          git push origin v${{ env.NEW_VERSION }}
 
           # Create a pull request (without label if it doesn't exist)
           gh pr create --title "Release v${{ env.NEW_VERSION }}" \
