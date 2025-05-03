@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -46,6 +47,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install setuptools wheel twine build
           npm install -g conventional-changelog-cli standard-version commitizen
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
 
       - name: Configure Git
         run: |
@@ -188,13 +198,34 @@ jobs:
           fi
           echo "COMMIT_MESSAGE=chore(release): ${NEW_VERSION}${SKIP_CI_TEXT}" >> $GITHUB_ENV
 
-      - name: Commit and push changes
+      - name: Commit and create a pull request
         run: |
+          # Create and switch to a new branch
+          BRANCH_NAME="release-v${{ env.NEW_VERSION }}"
+          git checkout -b $BRANCH_NAME
+
+          # Stage and commit the changes
           git add CHANGELOG.md upstox_instrument_query/__init__.py setup.py pyproject.toml
           git commit -m "${{ env.COMMIT_MESSAGE }}"
           git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
-          git push origin main
+
+          # Push the branch and tag
+          git push origin $BRANCH_NAME
           git push origin v${{ env.NEW_VERSION }}
+
+          # Create a pull request
+          gh pr create --title "Release v${{ env.NEW_VERSION }}" \
+                      --body "This pull request contains the changes for the v${{ env.NEW_VERSION }} release.
+
+                      ## Changes in this release:
+                      $(cat RELEASE_NOTES.md)
+
+                      This PR was created automatically by the release workflow." \
+                      --base main \
+                      --head $BRANCH_NAME \
+                      --label "release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
