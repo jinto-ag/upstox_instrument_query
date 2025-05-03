@@ -1,0 +1,301 @@
+name: Automatic and Manual Release
+
+on:
+  # Automatic trigger on push to main, excluding release commits
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "upstox_instrument_query/__init__.py"
+      - "setup.py"
+      - "pyproject.toml"
+  # Manual trigger with version type selection
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Type of release (major, minor, patch)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      skip_ci:
+        description: "Skip CI pipeline after release commit"
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    # Add this condition to prevent infinite loop - skip when PR is already from a release branch
+    if: ${{ !startsWith(github.event.head_commit.message, 'Merge pull request') || !contains(github.event.head_commit.message, 'release-v') }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools wheel twine build
+          npm install -g conventional-changelog-cli standard-version commitizen
+          # Note: 'conventional-changelog-cli' is the globally installed package, not 'conventional-changelog'.
+          echo "Adding npm global path to environment"
+          echo "PATH=$(npm config get prefix)/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Verify changelog tools installation
+        run: |
+          which conventional-changelog-cli || echo "conventional-changelog-cli not found in PATH"
+          npm list -g conventional-changelog-cli
+          if ! command -v conventional-changelog-cli &> /dev/null; then
+            echo "conventional-changelog-cli could not be found, installing locally"
+            npm install conventional-changelog-cli
+            export PATH="$PWD/node_modules/.bin:$PATH"
+            echo "PATH=$PATH" >> $GITHUB_ENV
+          fi
+
+      - name: Install GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+          sudo apt update
+          sudo apt install gh -y
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Determine version bump type (automatic mode)
+        id: bump_type
+        if: github.event_name == 'push'
+        run: |
+          # Get all commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+
+          if [ "$LAST_TAG" == "none" ]; then
+            # If no tags exist, look at all commits
+            COMMITS=$(git log --pretty=format:"%s")
+          else
+            # Get commits since last tag
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s")
+          fi
+
+          # Determine bump type based on conventional commits
+          if echo "$COMMITS" | grep -q "^feat!:\|^fix!:\|^refactor!:\|^BREAKING CHANGE"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMITS" | grep -q "^feat:\|^feat("; then
+            BUMP_TYPE="minor"
+          else
+            BUMP_TYPE="patch"
+          fi
+
+          echo "Detected bump type from commits: $BUMP_TYPE"
+          echo "BUMP_TYPE=$BUMP_TYPE" >> $GITHUB_ENV
+
+      - name: Set bump type (manual mode)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Using manually selected bump type: ${{ github.event.inputs.release_type }}"
+          echo "BUMP_TYPE=${{ github.event.inputs.release_type }}" >> $GITHUB_ENV
+
+      - name: Get current version
+        id: current_version
+        run: |
+          # First try to get version from __init__.py
+          if grep -q "__version__" upstox_instrument_query/__init__.py; then
+            INIT_VERSION=$(grep -E "__version__ = ['\"][^'\"]+['\"]" upstox_instrument_query/__init__.py | sed -E "s/__version__ = ['\"]([^'\"]+)['\"]/\1/")
+            echo "Current version from __init__.py: $INIT_VERSION"
+            echo "CURRENT_VERSION=$INIT_VERSION" >> $GITHUB_ENV
+          # Fall back to setup.py if needed
+          elif grep -q "version" setup.py; then
+            SETUP_VERSION=$(grep -E "version=['\"][^'\"]+['\"]" setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"]/\1/")
+            echo "Current version from setup.py: $SETUP_VERSION"
+            echo "CURRENT_VERSION=$SETUP_VERSION" >> $GITHUB_ENV
+          else
+            echo "Could not determine current version from files"
+            exit 1
+          fi
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          CURRENT=${{ env.CURRENT_VERSION }}
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+
+          case ${{ env.BUMP_TYPE }} in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+
+          # Update version in __init__.py
+          if grep -q "__version__" upstox_instrument_query/__init__.py; then
+            sed -i "s/__version__ = ['\"].*['\"]/__version__ = \"${NEW_VERSION}\"/g" upstox_instrument_query/__init__.py
+          fi
+
+          # Update version in setup.py (handles both quoted formats)
+          sed -i "s/version=['\"].*['\"]/version=\"${NEW_VERSION}\"/g" setup.py
+
+          # Update version in pyproject.toml if it exists
+          if grep -q "version" pyproject.toml; then
+            sed -i "s/version = \".*\"/version = \"${NEW_VERSION}\"/g" pyproject.toml
+          fi
+
+      - name: Generate changelog
+        run: |
+          # Add version header to changelog if it doesn't exist or create new file
+          if [ ! -f CHANGELOG.md ] || ! grep -q "# Changelog" CHANGELOG.md; then
+            echo -e "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [Unreleased]\n" > CHANGELOG.md
+          fi
+
+          # Add Unreleased section if it doesn't exist
+          if ! grep -q "\[Unreleased\]" CHANGELOG.md; then
+            sed -i "1s/^/# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [Unreleased]\n\n/" CHANGELOG.md
+          fi
+
+          DATE=$(date +%Y-%m-%d)
+
+          # Create new version section in CHANGELOG.md
+          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${NEW_VERSION}] - ${DATE}/g" CHANGELOG.md
+
+          # Generate conventional changelog content
+          TEMP_CHANGELOG=$(mktemp)
+          trap 'rm -f "$TEMP_CHANGELOG"' EXIT
+          conventional-changelog -p angular > $TEMP_CHANGELOG
+
+          # Extract relevant content from generated changelog and add to CHANGELOG.md
+          VERSION_CONTENT=$(sed -n '1,/^##/p' $TEMP_CHANGELOG | head -n -1)
+
+          # Insert version content right after new version header
+          sed -i "/## \[${NEW_VERSION}\] - ${DATE}/a \\${VERSION_CONTENT}" CHANGELOG.md
+
+          # Generate release notes file
+          echo "## ${NEW_VERSION} (${DATE})" > RELEASE_NOTES.md
+          echo "${VERSION_CONTENT}" >> RELEASE_NOTES.md
+
+          # Clean up temporary file
+          rm -f "$TEMP_CHANGELOG"
+
+      - name: Set commit message
+        id: commit_message
+        run: |
+          SKIP_CI_TEXT=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.skip_ci }}" == "true" ]]; then
+            SKIP_CI_TEXT=" [skip ci]"
+          fi
+          echo "COMMIT_MESSAGE=chore(release): ${NEW_VERSION}${SKIP_CI_TEXT}" >> $GITHUB_ENV
+
+      - name: Create release label if it doesn't exist
+        run: |
+          echo "Ensuring release label exists"
+          gh label create release --description "Release Pull Request" --color "00FF00" || echo "Label already exists or couldn't be created"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and create a pull request
+        run: |
+          # Create and switch to a new branch
+          BRANCH_NAME="release-v${{ env.NEW_VERSION }}"
+
+          # Check if the branch already exists remotely
+          if git ls-remote --heads origin $BRANCH_NAME | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists remotely. Using a unique branch name instead."
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            BRANCH_NAME="release-v${{ env.NEW_VERSION }}-$TIMESTAMP"
+          fi
+
+          git checkout -b $BRANCH_NAME
+
+          # Stage and commit the changes
+          git add CHANGELOG.md upstox_instrument_query/__init__.py setup.py pyproject.toml
+          git commit -m "${{ env.COMMIT_MESSAGE }}"
+
+          # Check if the tag already exists
+          if git rev-parse "v${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
+            echo "Tag v${{ env.NEW_VERSION }} already exists. Skipping tag creation and push."
+          else
+            git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
+            # We'll push the tag after the PR is merged automatically
+          fi
+
+          # Ensure the branch is up-to-date before pushing
+          git fetch origin main
+          if ! git rebase origin/main; then
+            echo "Rebase failed. Please resolve conflicts manually before retrying."
+            exit 1
+          fi
+
+          # Push the branch with force-with-lease to handle any conflicts safely
+          git push --force-with-lease origin $BRANCH_NAME || (
+            # If push fails, try with a timestamp-based branch as fallback
+            FALLBACK_BRANCH="release-v${{ env.NEW_VERSION }}-$(date +%Y%m%d%H%M%S)"
+            echo "Push failed, trying with fallback branch $FALLBACK_BRANCH"
+            git checkout -b $FALLBACK_BRANCH
+            git push origin $FALLBACK_BRANCH
+            BRANCH_NAME=$FALLBACK_BRANCH
+          )
+
+          # Create a pull request with instructions about the release process
+          gh pr create --title "Release v${{ env.NEW_VERSION }}" \
+                      --body "This pull request contains the changes for the v${{ env.NEW_VERSION }} release.
+
+                      ## Changes in this release:
+                      $(cat RELEASE_NOTES.md)
+                      
+                      ## Release Process
+                      1. Review and merge this PR
+                      2. After merging, manually create a GitHub release from tag v${{ env.NEW_VERSION }}
+                      3. Creating the release will automatically trigger the PyPI publish workflow
+                      
+                      This PR was created automatically by the release workflow." \
+                      --base main \
+                      --head $BRANCH_NAME
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: false

@@ -1,0 +1,8 @@
+[flake8]
+max-line-length = 100
+exclude = .git,__pycache__,dist,build,.venv
+# E203 and W503 are incompatible with Black
+ignore = E203, W503
+per-file-ignores =
+    __init__.py: F401
+    # Add more per-file ignores as needed
