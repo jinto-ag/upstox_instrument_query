@@ -247,8 +247,10 @@ jobs:
 
           # Ensure the branch is up-to-date before pushing
           git fetch origin main
-          git rebase origin/main || (echo "Rebase failed, but continuing with push attempt" && true)
-
+          if ! git rebase origin/main; then
+            echo "Rebase failed. Please resolve conflicts manually before retrying."
+            exit 1
+          fi
           # Push the branch with force-with-lease to handle any conflicts safely
           git push --force-with-lease origin $BRANCH_NAME || (
             # If push fails, try with a timestamp-based branch as fallback
