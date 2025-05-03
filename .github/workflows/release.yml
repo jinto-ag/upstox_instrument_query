@@ -90,12 +90,12 @@ jobs:
         run: |
           # First try to get version from __init__.py
           if grep -q "__version__" upstox_instrument_query/__init__.py; then
-            INIT_VERSION=$(grep -P "__version__ = ['\"]([^'\"]+)['\"]" upstox_instrument_query/__init__.py | cut -d'"' -f2 | cut -d"'" -f2)
+            INIT_VERSION=$(grep -E "__version__ = ['\"][^'\"]+['\"]" upstox_instrument_query/__init__.py | sed -E "s/__version__ = ['\"]([^'\"]+)['\"]/\1/")
             echo "Current version from __init__.py: $INIT_VERSION"
             echo "CURRENT_VERSION=$INIT_VERSION" >> $GITHUB_ENV
           # Fall back to setup.py if needed
           elif grep -q "version" setup.py; then
-            SETUP_VERSION=$(grep -P "version=['\"]([^'\"]+)['\"]" setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"].*/\1/")
+            SETUP_VERSION=$(grep -E "version=['\"][^'\"]+['\"]" setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"]/\1/")
             echo "Current version from setup.py: $SETUP_VERSION"
             echo "CURRENT_VERSION=$SETUP_VERSION" >> $GITHUB_ENV
           else
