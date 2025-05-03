@@ -1,6 +1,11 @@
-name: Release with Changelog
+name: Automatic and Manual Release
 
 on:
+  # Automatic trigger on push to main
+  push:
+    branches:
+      - main
+  # Manual trigger with version type selection
   workflow_dispatch:
     inputs:
       release_type:
@@ -12,6 +17,11 @@ on:
           - patch
           - minor
           - major
+      skip_ci:
+        description: "Skip CI pipeline after release commit"
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   release:
@@ -35,19 +45,63 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel twine build
-          npm install -g conventional-changelog-cli standard-version
+          npm install -g conventional-changelog-cli standard-version commitizen
 
       - name: Configure Git
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
+      - name: Determine version bump type (automatic mode)
+        id: bump_type
+        if: github.event_name == 'push'
+        run: |
+          # Get all commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+
+          if [ "$LAST_TAG" == "none" ]; then
+            # If no tags exist, look at all commits
+            COMMITS=$(git log --pretty=format:"%s")
+          else
+            # Get commits since last tag
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s")
+          fi
+
+          # Determine bump type based on conventional commits
+          if echo "$COMMITS" | grep -q "^feat!:\|^fix!:\|^refactor!:\|^BREAKING CHANGE"; then
+            BUMP_TYPE="major"
+          elif echo "$COMMITS" | grep -q "^feat:\|^feat("; then
+            BUMP_TYPE="minor"
+          else
+            BUMP_TYPE="patch"
+          fi
+
+          echo "Detected bump type from commits: $BUMP_TYPE"
+          echo "BUMP_TYPE=$BUMP_TYPE" >> $GITHUB_ENV
+
+      - name: Set bump type (manual mode)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Using manually selected bump type: ${{ github.event.inputs.release_type }}"
+          echo "BUMP_TYPE=${{ github.event.inputs.release_type }}" >> $GITHUB_ENV
+
       - name: Get current version
         id: current_version
         run: |
-          VERSION=$(python -c "from configparser import ConfigParser; p = ConfigParser(); p.read('setup.py', encoding='utf-8'); import re; print(re.search(r'version=[\'\"](.*?)[\'\"]', p.get('metadata', 'version')).group(1))")
-          echo "Current version: $VERSION"
-          echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
+          # First try to get version from __init__.py
+          if grep -q "__version__" upstox_instrument_query/__init__.py; then
+            INIT_VERSION=$(grep -E "__version__ = ['\"][^'\"]+['\"]" upstox_instrument_query/__init__.py | sed -E "s/__version__ = ['\"]([^'\"]+)['\"]/\1/")
+            echo "Current version from __init__.py: $INIT_VERSION"
+            echo "CURRENT_VERSION=$INIT_VERSION" >> $GITHUB_ENV
+          # Fall back to setup.py if needed
+          elif grep -q "version" setup.py; then
+            SETUP_VERSION=$(grep -E "version=['\"][^'\"]+['\"]" setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"]/\1/")
+            echo "Current version from setup.py: $SETUP_VERSION"
+            echo "CURRENT_VERSION=$SETUP_VERSION" >> $GITHUB_ENV
+          else
+            echo "Could not determine current version from files"
+            exit 1
+          fi
 
       - name: Bump version
         id: bump_version
@@ -58,7 +112,7 @@ jobs:
           MINOR=${VERSION_PARTS[1]}
           PATCH=${VERSION_PARTS[2]}
 
-          case ${{ github.event.inputs.release_type }} in
+          case ${{ env.BUMP_TYPE }} in
             major)
               MAJOR=$((MAJOR + 1))
               MINOR=0
@@ -77,26 +131,67 @@ jobs:
           echo "New version: $NEW_VERSION"
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
-          # Update version in files
-          sed -i "s/version=[\'\"]${CURRENT}[\'\"]/version=\'${NEW_VERSION}\'/g" setup.py
-
-          # Update version in __init__.py if it exists there
+          # Update version in __init__.py
           if grep -q "__version__" upstox_instrument_query/__init__.py; then
-            sed -i "s/__version__ = [\'\"].*[\'\"]/__version__ = \'${NEW_VERSION}\'/g" upstox_instrument_query/__init__.py
+            sed -i "s/__version__ = ['\"].*['\"]/__version__ = \"${NEW_VERSION}\"/g" upstox_instrument_query/__init__.py
+          fi
+
+          # Update version in setup.py (handles both quoted formats)
+          sed -i "s/version=['\"].*['\"]/version=\"${NEW_VERSION}\"/g" setup.py
+
+          # Update version in pyproject.toml if it exists
+          if grep -q "version" pyproject.toml; then
+            sed -i "s/version = \".*\"/version = \"${NEW_VERSION}\"/g" pyproject.toml
           fi
 
       - name: Generate changelog
         run: |
-          # Generate changelog
-          conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+          # Add version header to changelog if it doesn't exist or create new file
+          if [ ! -f CHANGELOG.md ] || ! grep -q "# Changelog" CHANGELOG.md; then
+            echo -e "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\nThe format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),\nand this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).\n\n## [Unreleased]\n" > CHANGELOG.md
+          fi
 
-          # Extract the latest release notes for the GitHub release
-          sed -n '/^## /,/^## /p' CHANGELOG.md | sed '$d' > RELEASE_NOTES.md
+          # Add Unreleased section if it doesn't exist
+          if ! grep -q "\[Unreleased\]" CHANGELOG.md; then
+            sed -i "1s/^/# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [Unreleased]\n\n/" CHANGELOG.md
+          fi
+
+          DATE=$(date +%Y-%m-%d)
+
+          # Create new version section in CHANGELOG.md
+          sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${NEW_VERSION}] - ${DATE}/g" CHANGELOG.md
+
+          # Generate conventional changelog content
+          TEMP_CHANGELOG=$(mktemp)
+          trap 'rm -f "$TEMP_CHANGELOG"' EXIT
+          conventional-changelog -p angular > $TEMP_CHANGELOG
+
+          # Extract relevant content from generated changelog and add to CHANGELOG.md
+          VERSION_CONTENT=$(sed -n '1,/^##/p' $TEMP_CHANGELOG | head -n -1)
+
+          # Insert version content right after new version header
+          sed -i "/## \[${NEW_VERSION}\] - ${DATE}/a \\${VERSION_CONTENT}" CHANGELOG.md
+
+          # Generate release notes file
+          echo "## ${NEW_VERSION} (${DATE})" > RELEASE_NOTES.md
+          echo "${VERSION_CONTENT}" >> RELEASE_NOTES.md
+
+          # Clean up temporary file
+          rm -f "$TEMP_CHANGELOG"
+
+      - name: Set commit message
+        id: commit_message
+        run: |
+          SKIP_CI_TEXT=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.skip_ci }}" == "true" ]]; then
+            SKIP_CI_TEXT=" [skip ci]"
+          fi
+          echo "COMMIT_MESSAGE=chore(release): ${NEW_VERSION}${SKIP_CI_TEXT}" >> $GITHUB_ENV
 
       - name: Commit and push changes
         run: |
-          git add CHANGELOG.md setup.py upstox_instrument_query/__init__.py
-          git commit -m "chore(release): ${{ env.NEW_VERSION }} [skip ci]"
+          git add CHANGELOG.md upstox_instrument_query/__init__.py setup.py pyproject.toml
+          git commit -m "${{ env.COMMIT_MESSAGE }}"
           git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
           git push origin main
           git push origin v${{ env.NEW_VERSION }}

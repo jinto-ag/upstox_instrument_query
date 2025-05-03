@@ -18,11 +18,27 @@ A Python package to efficiently query large Upstox instruments JSON files (~60MB
 - **Caching**: Implements LRU caching for frequently accessed queries
 - **CLI Support**: Command-line tools for database initialization and updates
 - **URL Support**: Direct loading from Upstox API URLs with gzip handling
+- **YFinance Integration**: Look up stock details using Yahoo Finance API
+- **Interactive Mode**: Interactive query interface for exploration
+- **Trading Symbol Lookup**: Direct lookup by trading symbol
+- **Option Chain**: Retrieve option chains for a specific ISIN
+- **Advanced Filtering**: Filter by segment, ISIN, option type, and more
+- **Log Management**: View, clear, archive, and manage application logs
+- **Cache Management**: Clear query cache for optimal performance
+- **Automated Updates**: Auto-update database with latest instrument data
 
 ## Installation
 
+Basic installation:
+
 ```bash
 pip install upstox-instrument-query
+```
+
+With YFinance support:
+
+```bash
+pip install "upstox-instrument-query[yfinance]"
 ```
 
 ## Usage
@@ -70,24 +86,121 @@ for instr in reliance_instruments[:3]:  # Print first 3
 # Custom query
 futures = query.custom_query('instrument_type = ? AND expiry > ?', ('FUTURES', '2025-01-01'))
 print(f"Found {len(futures)} futures expiring after 2025-01-01")
+
+# Get by trading symbol
+reliance = query.get_by_trading_symbol('RELIANCE')
+print(f"Found RELIANCE with key: {reliance['instrument_key']}")
+
+# Filter by segment
+nse_fo = query.filter_by_segment('NSE_FO')
+print(f"Found {len(nse_fo)} NSE F&O instruments")
+
+# Filter by ISIN
+hdfc_instruments = query.filter_by_isin('INE001A01036')
+print(f"Found {len(hdfc_instruments)} instruments with ISIN INE001A01036")
+
+# Filter by option type
+call_options = query.filter_by_option_type('CE')
+print(f"Found {len(call_options)} call options")
+
+# Get option chain
+reliance_options = query.get_option_chain('INE002A01018', expiry='2025-05-29')
+print(f"Found {len(reliance_options)} options in the chain for expiry 2025-05-29")
+```
+
+### Yahoo Finance Integration
+
+```python
+from upstox_instrument_query import InstrumentQuery
+from upstox_instrument_query.yfinance import get_ticker_info, find_corresponding_instrument, display_ticker_info, display_corresponding_instruments
+
+# Initialize query interface
+query = InstrumentQuery('/path/to/database.db')
+
+# Get information about a stock from Yahoo Finance
+ticker_info = get_ticker_info('MSFT')  # Microsoft
+
+# Display the ticker information
+display_ticker_info(ticker_info)
+
+# Find corresponding instruments in Upstox database
+matching_instruments = find_corresponding_instrument(query, ticker_info)
+
+# Display the matching instruments
+display_corresponding_instruments(matching_instruments)
+```
+
+### Interactive Mode
+
+The package provides an interactive shell for exploring the database:
+
+```bash
+# Start interactive mode
+upstox-query interactive /path/to/database.db
+```
+
+In interactive mode, you can run commands like:
+
+```bash
+> help                           # Show available commands
+> exchanges                      # List all exchanges
+> types                          # List all instrument types
+> segments                       # List all segments
+> search RELIANCE                # Search for instruments containing "RELIANCE"
+> filter NSE EQ                  # Filter by exchange and instrument type
+> filter NSE_FO                  # Filter by segment
+> isin INE001A01036              # Search by ISIN
+> ticker MSFT                    # Look up Yahoo Finance ticker
+> symbol RELIANCE                # Look up by trading symbol
+> option_chain INE002A01018      # Get option chain for Reliance
+> custom instrument_type = 'FUTURES' AND expiry > '2025-01-01'  # Custom SQL query
+> exit                           # Exit interactive mode
 ```
 
 ### CLI Commands
 
-The package provides a command-line interface for common operations:
+The package provides a comprehensive command-line interface:
 
 ```bash
-# Initialize database from file
-upstox-query init /path/to/instruments.json /path/to/database.db
+# Database Management
+upstox-query init                        # Initialize from default URL
+upstox-query init /path/to/instruments.json     # Initialize from file
+upstox-query init https://custom-url.com/data.json --url  # Initialize from custom URL
+upstox-query update                      # Update from default URL
 
-# Initialize database from URL
-upstox-query init https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz /path/to/database.db --url
+# Basic Querying (short form: upstox-query q)
+upstox-query query -k 'NSE_EQ|INE002A01018'    # Query by instrument key
+upstox-query query -e NSE                      # Query by exchange
+upstox-query query -t EQ                       # Query by instrument type
+upstox-query query -s NSE_FO                   # Query by segment
+upstox-query query -i INE001A01036             # Query by ISIN
+upstox-query query -o CE                       # Query by option type (CE/PE)
+upstox-query query -n "RELIANCE"               # Search by name (regex)
+upstox-query query -y RELIANCE                 # Query by trading symbol
+upstox-query query -c INE002A01018             # Get option chain for ISIN
+upstox-query query -w "name LIKE ?" -p "%BANK%"  # Custom SQL query
+upstox-query query -n "RELIANCE" --json        # Output in JSON format
+upstox-query query -c INE002A01018 --expiry 2025-05-29  # Option chain with expiry
 
-# Update existing database from file
-upstox-query update /path/to/instruments.json /path/to/database.db
+# Yahoo Finance (short form: upstox-query t)
+upstox-query ticker MSFT                       # Get Yahoo Finance data
+upstox-query ticker RELIANCE.NS --find-instruments  # Show related instruments
 
-# Update existing database from URL
-upstox-query update https://assets.upstox.com/market-quote/instruments/exchange/complete.json.gz /path/to/database.db --url
+# Interactive Mode (short form: upstox-query i)
+upstox-query interactive                       # Start interactive mode
+
+# Log Management
+upstox-query logs --list                       # List available log files
+upstox-query logs --view                       # View main log contents
+upstox-query logs --view --tail 20             # View last 20 lines of main log
+upstox-query logs --view --search ERROR        # View only lines with 'ERROR'
+upstox-query logs --view --log-name database   # View database-specific logs
+upstox-query logs --clear                      # Clear all logs
+upstox-query logs --archive                    # Archive logs to a zip file
+upstox-query logs --clean-archives --days 15   # Remove archives older than 15 days
+
+# Cache Management
+upstox-query cache                             # Clear query cache
 ```
 
 ## Advanced Usage
@@ -110,6 +223,63 @@ complex_query = query.custom_query(
     'exchange = ? AND instrument_type = ? AND expiry LIKE ? AND lot_size > ?',
     ('NSE', 'FUTURES', '2025-%', 500)
 )
+
+# Find all Nifty Bank options expiring next month
+from datetime import datetime
+next_month = (datetime.now().month % 12) + 1
+year = datetime.now().year + (1 if next_month < datetime.now().month else 0)
+expiry_pattern = f"{year}-{next_month:02d}-%"
+
+nifty_bank_options = query.custom_query(
+    'name LIKE ? AND instrument_type IN (?, ?) AND expiry LIKE ?',
+    ('BANKNIFTY%', 'CE', 'PE', expiry_pattern)
+)
+```
+
+### Log Management
+
+The package provides comprehensive logging facilities:
+
+```python
+# Import log management functions
+from upstox_instrument_query.logging_config import (
+    get_logger, view_logs, clear_logs, archive_logs, clean_old_archives
+)
+
+# Create a logger for your application
+logger = get_logger("my_app")
+logger.info("This is an informational message")
+logger.warning("This is a warning message")
+logger.error("This is an error message")
+
+# View log contents
+log_lines = view_logs(log_name="main", tail=20)
+for line in log_lines:
+    print(line)
+
+# Clear logs
+clear_logs()
+
+# Archive logs to a zip file
+archive_path = archive_logs()
+print(f"Logs archived to {archive_path}")
+
+# Clean up old archives
+removed_files = clean_old_archives(days=30)
+print(f"Removed {len(removed_files)} old archive files")
+```
+
+### Cache Management
+
+The package implements LRU caching for query results, which can be managed programmatically:
+
+```python
+from upstox_instrument_query import InstrumentQuery
+
+query = InstrumentQuery('/path/to/database.db')
+
+# Clear the query cache
+query.clear_cache()
 ```
 
 ## Performance Notes
@@ -162,6 +332,27 @@ pytest --cov=upstox_instrument_query --cov-report=html
 ```
 
 The coverage report will be available in the `htmlcov` directory. Open `htmlcov/index.html` in your browser to view it.
+
+### Automated Version Management
+
+This project uses GitHub Actions to automatically bump versions and generate changelogs based on conventional commit messages when merging to the main branch:
+
+- `feat:` commits trigger a minor version bump
+- `feat!:`, `fix!:`, or commits with `BREAKING CHANGE` trigger a major version bump
+- All other commits trigger a patch version bump
+
+The CI process will:
+
+1. Detect the appropriate version bump from commits
+2. Update version numbers in all relevant files
+3. Generate changelog entries
+4. Create GitHub releases automatically
+
+For manual releases, you can also use the workflow dispatch:
+
+```bash
+# From GitHub Actions UI, manually trigger the 'Release with Changelog' workflow
+```
 
 ### Test-Driven Development (TDD)
 
