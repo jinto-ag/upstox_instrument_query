@@ -1,13 +1,12 @@
-"""Query interface for the Upstox instrument database.
-
-This module provides classes and methods to efficiently query
-instrument data from the SQLite database.
-"""
+"""Query interface for the Upstox instrument database."""
 
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from .database import InstrumentDatabase
+from .logging_config import get_logger
+
+logger = get_logger("query")
 
 
 class InstrumentQuery:
@@ -26,11 +25,14 @@ class InstrumentQuery:
         Args:
             db_path (str): Path to the SQLite database file containing instrument data
         """
+        logger.debug(f"Initializing query interface with database at {db_path}")
         self.db = InstrumentDatabase(db_path)
         self.db.connect()
+        logger.info(f"Query interface initialized with database at {db_path}")
 
     def __del__(self):
         """Close the database connection when the object is destroyed."""
+        logger.debug("Closing database connection during query interface cleanup")
         self.db.close()
 
     @lru_cache(maxsize=1000)
@@ -44,16 +46,25 @@ class InstrumentQuery:
         Returns:
             Dict[str, Any] or None: Instrument details as a dictionary or None if not found
         """
+        logger.debug(f"Looking up instrument with key: {instrument_key}")
         if not self.db.cursor:
+            logger.error("Database cursor is None, cannot execute query")
             return None
 
         self.db.cursor.execute(
-            "SELECT * FROM instruments WHERE instrument_key = ?", (instrument_key,)
+            "SELECT * FROM instruments WHERE instrument_key = ?",
+            (instrument_key,),
         )
         result = self.db.cursor.fetchone()
         if result and self.db.cursor.description:
             columns = [col[0] for col in self.db.cursor.description]
-            return dict(zip(columns, result))
+            instrument = dict(zip(columns, result))
+            logger.debug(
+                f"Found instrument: {instrument.get('trading_symbol', 'Unknown')}"
+            )
+            return instrument
+
+        logger.debug(f"No instrument found with key: {instrument_key}")
         return None
 
     @lru_cache(maxsize=1000)
@@ -93,7 +104,8 @@ class InstrumentQuery:
             return []
 
         self.db.cursor.execute(
-            "SELECT * FROM instruments WHERE instrument_type = ?", (instrument_type,)
+            "SELECT * FROM instruments WHERE instrument_type = ?",
+            (instrument_type,),
         )
         if self.db.cursor.description:
             columns = [col[0] for col in self.db.cursor.description]
@@ -157,7 +169,8 @@ class InstrumentQuery:
             return []
 
         self.db.cursor.execute(
-            "SELECT * FROM instruments WHERE option_type = ?", (option_type,)
+            "SELECT * FROM instruments WHERE option_type = ?",
+            (option_type,),
         )
         if self.db.cursor.description:
             columns = [col[0] for col in self.db.cursor.description]
@@ -172,7 +185,8 @@ class InstrumentQuery:
 
         Args:
             name_pattern (str): Regular expression pattern to match against instrument names
-            case_sensitive (bool, optional): Whether the search should be case-sensitive. Defaults to False.
+            case_sensitive (bool, optional): Whether the search should be case-sensitive.
+                Defaults to False.
 
         Returns:
             List[Dict[str, Any]]: List of instrument dictionaries matching the name pattern
@@ -239,7 +253,8 @@ class InstrumentQuery:
             )
         else:
             self.db.cursor.execute(
-                "SELECT * FROM instruments WHERE trading_symbol = ?", (trading_symbol,)
+                "SELECT * FROM instruments WHERE trading_symbol = ?",
+                (trading_symbol,),
             )
         result = self.db.cursor.fetchone()
         if result and self.db.cursor.description:
@@ -267,5 +282,21 @@ class InstrumentQuery:
             )
         else:
             return self.custom_query(
-                "isin = ? AND instrument_type = 'OPTIONS'", (underlying_isin,)
+                "isin = ? AND instrument_type = 'OPTIONS'",
+                (underlying_isin,),
             )
+
+    def clear_cache(self) -> None:
+        """Clear all cached query results."""
+        methods_with_cache = [
+            self.get_by_instrument_key,
+            self.filter_by_exchange,
+            self.filter_by_instrument_type,
+            self.filter_by_segment,
+            self.filter_by_isin,
+            self.filter_by_option_type,
+            self.get_by_trading_symbol,
+        ]
+        for method in methods_with_cache:
+            if hasattr(method, "cache_clear"):
+                method.cache_clear()

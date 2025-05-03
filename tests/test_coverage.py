@@ -223,7 +223,7 @@ def test_query_edge_cases():
         assert pe_options[0]["instrument_key"] == "TEST5"
 
     finally:
-        # Clean up
+
         if os.path.exists(db_path):
             os.unlink(db_path)
 
@@ -307,7 +307,6 @@ def test_query_module_all_branches():
                 "NORMAL",
                 100.0,
             ),
-            # Futures
             (
                 "NSE_FUT_1",
                 "NSE",
@@ -327,7 +326,6 @@ def test_query_module_all_branches():
                 "NORMAL",
                 103.0,
             ),
-            # Options - both CE and PE
             (
                 "NSE_OPT_CE",
                 "NSE",
@@ -366,7 +364,6 @@ def test_query_module_all_branches():
                 "NORMAL",
                 5.0,
             ),
-            # Different expiry
             (
                 "NSE_OPT_CE_2",
                 "NSE",

@@ -4,7 +4,7 @@ This module tests the SQLite database functionality for storing and retrieving
 instrument data.
 """
 
-import sqlite3  # Removed unused 'os' import
+import sqlite3
 
 import pytest
 
@@ -34,8 +34,7 @@ def test_database_close(instrument_db):
     assert instrument_db.conn is not None
 
     instrument_db.close()
-    # SQLite connections are automatically closed when the connection object is garbage collected
-    # We can't directly test if the connection is closed, but we can check if operations fail
+
     with pytest.raises(Exception):
         instrument_db.cursor.execute("SELECT 1")
 
@@ -43,8 +42,8 @@ def test_database_close(instrument_db):
 def test_close_without_connection():
     """Test closing database without an active connection."""
     db = InstrumentDatabase(":memory:")
-    # No connection is established
-    db.close()  # Should not raise any exceptions
+
+    db.close()
 
 
 def test_create_table(instrument_db):
@@ -52,17 +51,14 @@ def test_create_table(instrument_db):
     instrument_db.connect()
     instrument_db._create_table()
 
-    # Verify table exists
     instrument_db.cursor.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='instruments'"
     )
     assert instrument_db.cursor.fetchone() is not None
 
-    # Verify all necessary columns exist
     instrument_db.cursor.execute("PRAGMA table_info(instruments)")
     columns = [row[1] for row in instrument_db.cursor.fetchall()]
 
-    # Check that all expected columns are present
     expected_columns = [
         "instrument_key",
         "exchange",
@@ -93,7 +89,6 @@ def test_create_indexes(instrument_db):
     instrument_db._create_table()
     instrument_db._create_indexes()
 
-    # Verify indexes exist
     instrument_db.cursor.execute(
         "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='instruments'"
     )
@@ -119,19 +114,17 @@ def test_load_json(temp_db_path, sample_json_path):
     db._create_table()
     db._load_json(sample_json_path)
 
-    # Verify data was loaded
     db.cursor.execute("SELECT COUNT(*) FROM instruments")
     count = db.cursor.fetchone()[0]
-    assert count == 5  # We now have 5 instruments in our sample data
+    assert count == 5
 
-    # Verify specific data including new fields
     db.cursor.execute(
-        "SELECT * FROM instruments WHERE instrument_key = ?", ("NSE_EQ|INE001A01036",)
+        "SELECT * FROM instruments WHERE instrument_key = ?",
+        ("NSE_EQ|INE001A01036",),
     )
     result = db.cursor.fetchone()
     assert result is not None
 
-    # Check that columns match expected values
     db.cursor.execute("PRAGMA table_info(instruments)")
     columns = [row[1] for row in db.cursor.fetchall()]
     result_dict = dict(zip(columns, result))
@@ -143,7 +136,6 @@ def test_load_json(temp_db_path, sample_json_path):
     assert result_dict["short_name"] == "TESTCO1"
     assert result_dict["security_type"] == "NORMAL"
 
-    # Test option instrument
     db.cursor.execute("SELECT * FROM instruments WHERE option_type = ?", ("CE",))
     result = db.cursor.fetchone()
     assert result is not None
@@ -157,11 +149,9 @@ def test_initialize(temp_db_path, sample_json_path):
     db = InstrumentDatabase(temp_db_path)
     db.initialize(sample_json_path)
 
-    # Connect to the database to verify
     conn = sqlite3.connect(temp_db_path)
     cursor = conn.cursor()
 
-    # Check if all expected tables and indexes exist
     cursor.execute("SELECT name FROM sqlite_master WHERE type IN ('table', 'index')")
     objects = [row[0] for row in cursor.fetchall()]
 
@@ -178,7 +168,6 @@ def test_initialize(temp_db_path, sample_json_path):
     for obj in expected_objects:
         assert obj in objects
 
-    # Check data
     cursor.execute("SELECT COUNT(*) FROM instruments")
     count = cursor.fetchone()[0]
     assert count == 5
@@ -188,7 +177,7 @@ def test_initialize(temp_db_path, sample_json_path):
 
 def test_update_instruments(temp_db_path, sample_json_path):
     """Test the update_instruments method."""
-    # Initialize an empty database
+
     db = InstrumentDatabase(temp_db_path)
     db.connect()
     db._create_table()
@@ -200,27 +189,23 @@ def test_update_instruments(temp_db_path, sample_json_path):
     )
     db.conn.commit()
 
-    # Verify the test record exists
     db.cursor.execute("SELECT COUNT(*) FROM instruments")
     count = db.cursor.fetchone()[0]
     assert count == 1
 
-    # Update instruments
     db.update_instruments(sample_json_path)
 
-    # Verify old data is gone and new data is loaded
     db.cursor.execute("SELECT COUNT(*) FROM instruments")
     count = db.cursor.fetchone()[0]
     assert count == 5
 
-    # Verify the test record is gone
     db.cursor.execute(
-        "SELECT COUNT(*) FROM instruments WHERE instrument_key = ?", ("TEST_KEY",)
+        "SELECT COUNT(*) FROM instruments WHERE instrument_key = ?",
+        ("TEST_KEY",),
     )
     count = db.cursor.fetchone()[0]
     assert count == 0
 
-    # Verify specific data was loaded
     db.cursor.execute("SELECT COUNT(*) FROM instruments WHERE option_type = ?", ("CE",))
     count = db.cursor.fetchone()[0]
     assert count == 1
@@ -232,7 +217,6 @@ def test_database_regexp_function():
     db.connect()
     db._create_table()
 
-    # Insert sample data
     db.cursor.execute(
         """
         INSERT INTO instruments (instrument_key, name)
@@ -242,17 +226,14 @@ def test_database_regexp_function():
     )
     db.conn.commit()
 
-    # Test REGEXP with matching pattern
     db.cursor.execute("SELECT * FROM instruments WHERE name REGEXP ?", ("^TEST.*",))
     result = db.cursor.fetchone()
     assert result is not None
 
-    # Test REGEXP with non-matching pattern
     db.cursor.execute("SELECT * FROM instruments WHERE name REGEXP ?", ("^NOMATCH.*",))
     result = db.cursor.fetchone()
     assert result is None
 
-    # Test REGEXP with NULL value
     db.cursor.execute(
         """
         INSERT INTO instruments (instrument_key, name)
@@ -264,4 +245,4 @@ def test_database_regexp_function():
 
     db.cursor.execute("SELECT * FROM instruments WHERE name REGEXP ?", (".*",))
     results = db.cursor.fetchall()
-    assert len(results) == 1  # Only the non-NULL value should match
+    assert len(results) == 1

@@ -83,3 +83,6 @@ docs/_build/
 
 # PyBuilder
 target/
+
+#
+remove_comments.py

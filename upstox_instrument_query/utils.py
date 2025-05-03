@@ -24,7 +24,7 @@ def stream_json(file_path: str) -> Iterator[Dict[str, Any]]:
         dict: Individual instrument objects from the JSON file
     """
     with open(file_path, "r") as f:
-        # For small test files, parse the entire JSON at once
+
         try:
             data = json.load(f)
             if isinstance(data, list):
@@ -34,13 +34,11 @@ def stream_json(file_path: str) -> Iterator[Dict[str, Any]]:
                 yield data
             return
         except json.JSONDecodeError:
-            # If it's not valid JSON as a whole, try the streaming approach
+
             f.seek(0)
 
-        # Skip the opening bracket for streaming approach
         f.read(1)
 
-        # Read instruments one by one
         depth = 1
         obj_str = ""
         for char in iter(lambda: f.read(1), ""):
@@ -51,15 +49,14 @@ def stream_json(file_path: str) -> Iterator[Dict[str, Any]]:
                 depth -= 1
 
             if depth == 1 and char == "}":
-                # We've completed an object
+
                 try:
                     yield json.loads(obj_str)
                 except json.JSONDecodeError:
-                    pass  # Skip malformed JSON
+                    pass
 
                 obj_str = ""
 
-                # Skip comma and whitespace
                 next_char = f.read(1)
                 while next_char in [",", " ", "\n", "\r", "\t"]:
                     next_char = f.read(1)
@@ -84,7 +81,7 @@ def stream_json_from_url(url: str) -> Iterator[Dict[str, Any]]:
         dict: Individual instrument objects from the JSON file
     """
     with urllib.request.urlopen(url) as response:
-        # Detect if content is gzipped
+
         is_gzipped = response.headers.get("Content-Encoding") == "gzip" or url.endswith(
             ".gz"
         )
@@ -95,7 +92,6 @@ def stream_json_from_url(url: str) -> Iterator[Dict[str, Any]]:
         else:
             content = response.read().decode("utf-8")
 
-        # Process JSON content
         data = json.loads(content)
         if isinstance(data, list):
             for item in data:
