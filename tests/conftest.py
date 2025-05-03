@@ -31,7 +31,7 @@ def temp_db_path():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     yield path
-    # Cleanup after test
+
     if os.path.exists(path):
         os.unlink(path)
 
@@ -50,7 +50,7 @@ def instrument_query(initialized_db):
     """Return an initialized InstrumentQuery instance."""
     query = InstrumentQuery(initialized_db)
     yield query
-    # Clean up
+
     query.db.close()
 
 
@@ -59,7 +59,7 @@ def instrument_db(temp_db_path):
     """Return an InstrumentDatabase instance."""
     db = InstrumentDatabase(temp_db_path)
     yield db
-    # Clean up
+
     db.close()
 
 

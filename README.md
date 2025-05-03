@@ -58,7 +58,7 @@ nse_instruments = query.filter_by_exchange('NSE')
 print(f"Found {len(nse_instruments)} NSE instruments")
 
 # Filter by instrument type
-equity_instruments = query.filter_by_instrument_type('EQUITY')
+equity_instruments = query.filter_by_instrument_type('EQ')
 print(f"Found {len(equity_instruments)} EQUITY instruments")
 
 # Search by name (regex)

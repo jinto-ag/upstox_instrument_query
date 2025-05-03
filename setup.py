@@ -19,10 +19,20 @@ setup(
             "pytest-cov==6.1.1",
             "pre-commit==4.2.0",
             "coverage==7.8.0",
+            "flake8>=7.2.0",
+            "black>=25.1.0",
+            "isort>=6.0.1",
+            "autoflake>=2.3.1",
         ],
         "test": [
             "pytest==8.3.5",
             "pytest-cov==6.1.1",
+        ],
+        "yfinance": [
+            "yfinance>=0.2.58",
+        ],
+        "full": [
+            "yfinance>=0.2.58",
         ],
     },
     entry_points={

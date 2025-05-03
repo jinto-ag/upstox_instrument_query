@@ -22,7 +22,6 @@ class TestQueryEdgeCases:
         fd, db_path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
 
-        # Create the database structure but don't add any data
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -50,7 +49,6 @@ class TestQueryEdgeCases:
 
         yield query
 
-        # Clean up
         query.db.close()
         os.unlink(db_path)
 
@@ -60,7 +58,6 @@ class TestQueryEdgeCases:
         fd, db_path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
 
-        # Set up database with test data
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -138,7 +135,6 @@ class TestQueryEdgeCases:
 
         yield query
 
-        # Clean up
         query.db.close()
         os.unlink(db_path)
 
@@ -180,7 +176,7 @@ class TestQueryEdgeCases:
     def test_search_by_name_case_sensitive(self, minimal_query):
         """Test searching by name with case sensitivity."""
         results = minimal_query.search_by_name("test", case_sensitive=True)
-        # Should match zero, as our test data has capital 'T'
+
         assert len(results) == 0
 
     def test_get_by_trading_symbol_nonexistent(self, minimal_query):
@@ -205,7 +201,7 @@ class TestQueryEdgeCases:
 
     def test_empty_database(self, empty_query):
         """Test querying with an empty database structure."""
-        # This should test many of the empty result paths
+
         assert empty_query.get_by_instrument_key("ANY") is None
         assert len(empty_query.filter_by_exchange("ANY")) == 0
         assert len(empty_query.filter_by_instrument_type("ANY")) == 0
