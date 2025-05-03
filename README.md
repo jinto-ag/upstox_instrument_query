@@ -5,7 +5,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/jinto-ag/upstox_instrument_query/blob/main/LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Tests Passing](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/jinto-ag/upstox_instrument_query)
-[![Coverage 93%](https://img.shields.io/badge/coverage-93%25-brightgreen.svg)](https://github.com/jinto-ag/upstox_instrument_query/blob/main/htmlcov/index.html)
+[![Coverage 93%](https://img.shields.io/badge/coverage-73%25-yellowgreen.svg)](https://github.com/jinto-ag/upstox_instrument_query/blob/main/htmlcov/index.html)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
 A Python package to efficiently query large Upstox instruments JSON files (~60MB) using SQLite for optimal performance.
