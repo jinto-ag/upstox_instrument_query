@@ -223,6 +223,14 @@ jobs:
         run: |
           # Create and switch to a new branch
           BRANCH_NAME="release-v${{ env.NEW_VERSION }}"
+
+          # Check if the branch already exists remotely
+          if git ls-remote --heads origin $BRANCH_NAME | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME already exists remotely. Using a unique branch name instead."
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            BRANCH_NAME="release-v${{ env.NEW_VERSION }}-$TIMESTAMP"
+          fi
+
           git checkout -b $BRANCH_NAME
 
           # Stage and commit the changes
@@ -231,14 +239,27 @@ jobs:
 
           # Check if the tag already exists
           if git rev-parse "v${{ env.NEW_VERSION }}" >/dev/null 2>&1; then
-            echo "Tag v${{ env.NEW_VERSION }} already exists. Skipping tag creation."
+            echo "Tag v${{ env.NEW_VERSION }} already exists. Skipping tag creation and push."
           else
             git tag -a v${{ env.NEW_VERSION }} -m "Release v${{ env.NEW_VERSION }}"
             git push origin v${{ env.NEW_VERSION }}
           fi
 
-          # Push the branch (always, regardless of whether the tag exists)
-          git push origin $BRANCH_NAME
+          # Ensure the branch is up-to-date before pushing
+          git fetch origin main
+          if ! git rebase origin/main; then
+            echo "Rebase failed. Please resolve conflicts manually before retrying."
+            exit 1
+          fi
+          # Push the branch with force-with-lease to handle any conflicts safely
+          git push --force-with-lease origin $BRANCH_NAME || (
+            # If push fails, try with a timestamp-based branch as fallback
+            FALLBACK_BRANCH="release-v${{ env.NEW_VERSION }}-$(date +%Y%m%d%H%M%S)"
+            echo "Push failed, trying with fallback branch $FALLBACK_BRANCH"
+            git checkout -b $FALLBACK_BRANCH
+            git push origin $FALLBACK_BRANCH
+            BRANCH_NAME=$FALLBACK_BRANCH
+          )
 
           # Create a pull request (without label if it doesn't exist)
           gh pr create --title "Release v${{ env.NEW_VERSION }}" \
