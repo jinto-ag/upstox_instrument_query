@@ -15,6 +15,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -50,9 +53,17 @@ jobs:
           # Update README.md with the new badge
           sed -i "s|https://img.shields.io/badge/coverage-[0-9.]*%25-[a-z]*|${BADGE_URL}|g" README.md
 
-      - name: Commit updated README with coverage badge
+      - name: Create Pull Request for coverage badge update
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: peter-evans/create-pull-request@v6
         with:
-          commit_message: "docs: update coverage badge [skip ci]"
-          file_pattern: README.md
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: update coverage badge [skip ci]"
+          title: "Update coverage badge to ${{ env.COVERAGE }}%"
+          body: |
+            Automated PR to update the coverage badge in README.md
+
+            Current coverage: ${{ env.COVERAGE }}%
+          branch: update-coverage-badge
+          base: main
+          delete-branch: true
