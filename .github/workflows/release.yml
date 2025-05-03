@@ -137,8 +137,7 @@ jobs:
           fi
 
           # Update version in setup.py (handles both quoted formats)
-          sed -i "s/version=\".*\"/version=\"${NEW_VERSION}\"/g" setup.py
-          sed -i "s/version='.*'/version='${NEW_VERSION}'/g" setup.py
+          sed -i "s/version=['\"].*['\"]/version=\"${NEW_VERSION}\"/g" setup.py
 
           # Update version in pyproject.toml if it exists
           if grep -q "version" pyproject.toml; then
