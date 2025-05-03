@@ -47,16 +47,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install setuptools wheel twine build
           npm install -g conventional-changelog-cli standard-version commitizen
+          # Note: 'conventional-changelog-cli' is the globally installed package, not 'conventional-changelog'.
           echo "Adding npm global path to environment"
           export PATH="$(npm config get prefix)/bin:$PATH"
           echo "PATH=$PATH" >> $GITHUB_ENV
 
       - name: Verify changelog tools installation
         run: |
-          which conventional-changelog || echo "conventional-changelog not found in PATH"
+          which conventional-changelog-cli || echo "conventional-changelog-cli not found in PATH"
           npm list -g conventional-changelog-cli
-          if ! command -v conventional-changelog &> /dev/null; then
-            echo "conventional-changelog could not be found, installing locally"
+          if ! command -v conventional-changelog-cli &> /dev/null; then
+            echo "conventional-changelog-cli could not be found, installing locally"
             npm install conventional-changelog-cli
             export PATH="$PWD/node_modules/.bin:$PATH"
             echo "PATH=$PATH" >> $GITHUB_ENV
