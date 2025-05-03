@@ -47,6 +47,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install setuptools wheel twine build
           npm install -g conventional-changelog-cli standard-version commitizen
+          # Note: 'conventional-changelog-cli' is the globally installed package, not 'conventional-changelog'.
+          echo "Adding npm global path to environment"
+          echo "PATH=$(npm config get prefix)/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Verify changelog tools installation
+        run: |
+          which conventional-changelog-cli || echo "conventional-changelog-cli not found in PATH"
+          npm list -g conventional-changelog-cli
+          if ! command -v conventional-changelog-cli &> /dev/null; then
+            echo "conventional-changelog-cli could not be found, installing locally"
+            npm install conventional-changelog-cli
+            export PATH="$PWD/node_modules/.bin:$PATH"
+            echo "PATH=$PATH" >> $GITHUB_ENV
+          fi
 
       - name: Install GitHub CLI
         run: |
@@ -198,6 +212,13 @@ jobs:
           fi
           echo "COMMIT_MESSAGE=chore(release): ${NEW_VERSION}${SKIP_CI_TEXT}" >> $GITHUB_ENV
 
+      - name: Create release label if it doesn't exist
+        run: |
+          echo "Ensuring release label exists"
+          gh label create release --description "Release Pull Request" --color "00FF00" || echo "Label already exists or couldn't be created"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Commit and create a pull request
         run: |
           # Create and switch to a new branch
@@ -213,7 +234,7 @@ jobs:
           git push origin $BRANCH_NAME
           git push origin v${{ env.NEW_VERSION }}
 
-          # Create a pull request
+          # Create a pull request (without label if it doesn't exist)
           gh pr create --title "Release v${{ env.NEW_VERSION }}" \
                       --body "This pull request contains the changes for the v${{ env.NEW_VERSION }} release.
 
@@ -222,8 +243,7 @@ jobs:
 
                       This PR was created automatically by the release workflow." \
                       --base main \
-                      --head $BRANCH_NAME \
-                      --label "release"
+                      --head $BRANCH_NAME
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
