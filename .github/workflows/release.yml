@@ -164,6 +164,7 @@ jobs:
 
           # Generate conventional changelog content
           TEMP_CHANGELOG=$(mktemp)
+          trap 'rm -f "$TEMP_CHANGELOG"' EXIT
           conventional-changelog -p angular > $TEMP_CHANGELOG
 
           # Extract relevant content from generated changelog and add to CHANGELOG.md
