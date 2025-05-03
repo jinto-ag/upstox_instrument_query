@@ -49,8 +49,7 @@ jobs:
           npm install -g conventional-changelog-cli standard-version commitizen
           # Note: 'conventional-changelog-cli' is the globally installed package, not 'conventional-changelog'.
           echo "Adding npm global path to environment"
-          export PATH="$(npm config get prefix)/bin:$PATH"
-          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo "PATH=$(npm config get prefix)/bin:$PATH" >> $GITHUB_ENV
 
       - name: Verify changelog tools installation
         run: |
