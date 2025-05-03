@@ -176,6 +176,9 @@ jobs:
           echo "## ${NEW_VERSION} (${DATE})" > RELEASE_NOTES.md
           echo "${VERSION_CONTENT}" >> RELEASE_NOTES.md
 
+          # Clean up temporary file
+          rm -f "$TEMP_CHANGELOG"
+
       - name: Set commit message
         id: commit_message
         run: |
