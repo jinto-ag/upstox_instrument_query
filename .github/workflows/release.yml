@@ -225,7 +225,7 @@ jobs:
           BRANCH_NAME="release-v${{ env.NEW_VERSION }}"
 
           # Check if the branch already exists remotely
-          if git ls-remote --heads origin $BRANCH_NAME | grep -q $BRANCH_NAME; then
+          if git ls-remote --heads origin $BRANCH_NAME | grep -q "$BRANCH_NAME"; then
             echo "Branch $BRANCH_NAME already exists remotely. Using a unique branch name instead."
             TIMESTAMP=$(date +%Y%m%d%H%M%S)
             BRANCH_NAME="release-v${{ env.NEW_VERSION }}-$TIMESTAMP"
