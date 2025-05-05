@@ -55,7 +55,7 @@ jobs:
 
       - name: Create Pull Request for coverage badge update
         if: github.ref == 'refs/heads/main' && matrix.python-version == '3.12'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "docs: update coverage badge [skip ci]"
