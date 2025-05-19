@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upstox-instrument-query"
-version = "0.2.1"
+version = "0.2.2"
 description = "Efficiently query large Upstox instruments JSON files using SQLite"
 readme = "README.md"
 requires-python = ">=3.9"
