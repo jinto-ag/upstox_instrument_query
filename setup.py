@@ -18,7 +18,7 @@ setup(
             "pytest==8.3.5",
             "pytest-cov==6.1.1",
             "pre-commit==4.2.0",
-            "coverage==7.8.0",
+            "coverage==7.8.2",
             "flake8>=7.2.0",
             "black>=25.1.0",
             "isort>=6.0.1",
