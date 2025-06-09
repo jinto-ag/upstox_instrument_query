@@ -15,7 +15,7 @@ setup(
     ],
     extras_require={
         "dev": [
-            "pytest==8.3.5",
+            "pytest==8.4.0",
             "pytest-cov==6.1.1",
             "pre-commit==4.2.0",
             "coverage==7.8.0",
@@ -25,7 +25,7 @@ setup(
             "autoflake>=2.3.1",
         ],
         "test": [
-            "pytest==8.3.5",
+            "pytest==8.4.0",
             "pytest-cov==6.1.1",
         ],
         "yfinance": [
