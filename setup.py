@@ -16,7 +16,7 @@ setup(
     extras_require={
         "dev": [
             "pytest==8.3.5",
-            "pytest-cov==6.1.1",
+            "pytest-cov==6.3.0",
             "pre-commit==4.2.0",
             "coverage==7.8.0",
             "flake8>=7.2.0",
@@ -26,7 +26,7 @@ setup(
         ],
         "test": [
             "pytest==8.3.5",
-            "pytest-cov==6.1.1",
+            "pytest-cov==6.3.0",
         ],
         "yfinance": [
             "yfinance>=0.2.58",
